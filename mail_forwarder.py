@@ -40,7 +40,7 @@ if env_accounts:
         NTU_ACCOUNTS = json.loads(env_accounts)
         print("ℹ️ 已成功載入 NTU_ACCOUNTS 環境變數")
     except Exception as e:
-        print(f"⚠️ 解析 NTU_ACCOUNTS 環境變數失敗: {e}，將使用程式碼內設定")
+        print(f"⚠️ 解析 NTU_ACCOUNTS 環境變數失敗: {type(e).__name__}，將使用程式碼內設定")
 
 env_forward_to = os.environ.get("FORWARD_TO")
 if env_forward_to:
@@ -53,7 +53,7 @@ if env_forward_to:
             FORWARD_TO = [email.strip() for email in stripped_val.split(",") if email.strip()]
         print("ℹ️ 已成功載入 FORWARD_TO 環境變數")
     except Exception as e:
-        print(f"⚠️ 解析 FORWARD_TO 環境變數失敗: {e}，將使用程式碼內設定")
+        print(f"⚠️ 解析 FORWARD_TO 環境變數失敗: {type(e).__name__}，將使用程式碼內設定")
 
 
 def get_mail_receive_server(account):
@@ -82,6 +82,30 @@ def decode_str(header_val):
         else:
             header_str += text
     return header_str
+
+
+def mask_email(email_str):
+    """將 Email 帳號部分進行遮罩（例如 abcde@ntu.edu.tw -> ab***@ntu.edu.tw）"""
+    if not email_str:
+        return ""
+    if "@" in email_str:
+        user, domain = email_str.split("@", 1)
+        if len(user) <= 2:
+            return user + "***" + "@" + domain
+        return user[:2] + "***" + user[-1] + "@" + domain
+    else:
+        if len(email_str) <= 2:
+            return email_str + "***"
+        return email_str[:2] + "***" + email_str[-1]
+
+
+def mask_subject(subject_str):
+    """將信件主旨進行遮罩處理，僅顯示前 2 個字元以供識別，其餘遮罩"""
+    if not subject_str:
+        return "(無主旨)"
+    if len(subject_str) <= 2:
+        return "**"
+    return subject_str[:2] + "..."
 
 
 def forward_email(raw_email, ntu_user, ntu_password):
@@ -181,7 +205,7 @@ def forward_email(raw_email, ntu_user, ntu_password):
         username = ntu_user.split("@")[0]
         smtp.login(username, ntu_password)
         smtp.send_message(forward_msg)
-        print(f"✅ [{ntu_user}] 已成功轉發信件: {subject}")
+        print(f"✅ [{mask_email(ntu_user)}] 已成功轉發信件: {mask_subject(subject)}")
 
 
 def check_and_forward_account(ntu_user, ntu_password, mail_receive_server, mail_receive_port, protocol=None):
@@ -196,11 +220,11 @@ def check_and_forward_account(ntu_user, ntu_password, mail_receive_server, mail_
             
             num_messages, _ = mail.stat()
             if num_messages == 0:
-                print(f"ℹ️ [{ntu_user}] 目前沒有未讀新信件")
+                print(f"ℹ️ [{mask_email(ntu_user)}] 目前沒有未讀新信件")
                 mail.quit()
                 return
 
-            print(f"📩 [{ntu_user}] 收到 {num_messages} 封未讀信件，準備處理...")
+            print(f"📩 [{mask_email(ntu_user)}] 收到 {num_messages} 封未讀信件，準備處理...")
 
             for i in range(1, num_messages + 1):
                 # 1. 取得整封信件內容
@@ -212,14 +236,14 @@ def check_and_forward_account(ntu_user, ntu_password, mail_receive_server, mail_
 
                 # 3. 標記刪除
                 mail.dele(i)
-                print(f"🗑️ [{ntu_user}] 已標記信件 {i} 為刪除")
+                print(f"🗑️ [{mask_email(ntu_user)}] 已標記信件 {i} 為刪除")
 
             # 4. 登出並執行刪除
             mail.quit()
-            print(f"✅ [{ntu_user}] POP3 處理完成並登出")
+            print(f"✅ [{mask_email(ntu_user)}] POP3 處理完成並登出")
 
         except Exception as e:
-            print(f"❌ [{ntu_user}] POP3 發生錯誤: {e}")
+            print(f"❌ [{mask_email(ntu_user)}] POP3 發生錯誤: {e}")
             traceback.print_exc()
     else:
         try:
@@ -230,15 +254,15 @@ def check_and_forward_account(ntu_user, ntu_password, mail_receive_server, mail_
 
             status, messages = mail.search(None, "UNSEEN")
             if status != "OK":
-                print(f"⚠️ [{ntu_user}] 無法讀取收件匣")
+                print(f"⚠️ [{mask_email(ntu_user)}] 無法讀取收件匣")
                 return
 
             mail_ids = messages[0].split()
             if not mail_ids:
-                print(f"ℹ️ [{ntu_user}] 目前沒有未讀新信件")
+                print(f"ℹ️ [{mask_email(ntu_user)}] 目前沒有未讀新信件")
                 return
 
-            print(f"📩 [{ntu_user}] 收到 {len(mail_ids)} 封未讀信件，準備處理...")
+            print(f"📩 [{mask_email(ntu_user)}] 收到 {len(mail_ids)} 封未讀信件，準備處理...")
 
             for mail_id in mail_ids:
                 # 1. 取得整封信件內容
@@ -254,9 +278,9 @@ def check_and_forward_account(ntu_user, ntu_password, mail_receive_server, mail_
                 if result[0] == "OK":
                     # 4. 複製成功後，標記原收件匣信件為刪除狀態
                     mail.store(mail_id, "+FLAGS", "\\Deleted")
-                    print(f"🗑️ [{ntu_user}] 已將信件 ID {mail_id.decode()} 移至垃圾桶")
+                    print(f"🗑️ [{mask_email(ntu_user)}] 已將信件 ID {mail_id.decode()} 移至垃圾桶")
                 else:
-                    print(f"⚠️ [{ntu_user}] 移至垃圾桶失敗，僅標示為已讀")
+                    print(f"⚠️ [{mask_email(ntu_user)}] 移至垃圾桶失敗，僅標示為已讀")
                     mail.store(mail_id, "+FLAGS", "\\Seen")
 
             # 5. 永久刪除所有標記為 \Deleted 的信件（完成移動作業）
@@ -264,7 +288,7 @@ def check_and_forward_account(ntu_user, ntu_password, mail_receive_server, mail_
             mail.logout()
 
         except Exception as e:
-            print(f"❌ [{ntu_user}] IMAP 發生錯誤: {e}")
+            print(f"❌ [{mask_email(ntu_user)}] IMAP 發生錯誤: {e}")
             traceback.print_exc()
 
 
@@ -286,7 +310,7 @@ def check_and_forward_all():
         
         protocol = account.get("protocol", "").lower().strip()
         if not protocol:
-            print(f"⚠️ [{ntu_user}] 未設定收信協定 (protocol 必填)，跳過此項目")
+            print(f"⚠️ [{mask_email(ntu_user)}] 未設定收信協定 (protocol 必填)，跳過此項目")
             continue
         
         # 取得指定的收信伺服器，若無則自動偵測
