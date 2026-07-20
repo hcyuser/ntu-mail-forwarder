@@ -5,6 +5,10 @@ on:
     - cron: '0 3 * * *'  # 每天 UTC 03:00 執行 (約為台灣時間 11:00)
   workflow_dispatch:      # 支援在 GitHub 網頁手動點擊觸發執行
 
+# 顯式指定最簡權限，避免 Token 被誤用
+permissions:
+  contents: read
+
 jobs:
   run-forwarder:
     runs-on: ubuntu-latest
