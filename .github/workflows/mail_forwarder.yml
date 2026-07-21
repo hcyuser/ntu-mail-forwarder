@@ -1,11 +1,11 @@
-name: NTU Mail Forwarder
+name: General Mail Forwarder
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # 每天 UTC 03:00 執行 (約為台灣時間 11:00)
-  workflow_dispatch:      # 支援在 GitHub 網頁手動點擊觸發執行
+    - cron: '0 3 * * *'  # Runs daily at 03:00 UTC (approx. 11:00 Taiwan time)
+  workflow_dispatch:      # Supports manual trigger via GitHub Web UI
 
-# 顯式指定最簡權限，避免 Token 被誤用
+# Explicitly define minimal permissions to prevent token misuse
 permissions:
   contents: read
 
@@ -14,16 +14,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 取得專案代碼 (Checkout)
+      - name: Checkout Repository Code
         uses: actions/checkout@v4
 
-      - name: 設定 Python 環境
+      - name: Set up Python Environment
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: 執行郵件轉發程式
+      - name: Run Mail Forwarder Script
         env:
-          NTU_ACCOUNTS: ${{ secrets.NTU_ACCOUNTS }}
+          MAIL_ACCOUNTS: ${{ secrets.MAIL_ACCOUNTS }}
           FORWARD_TO: ${{ secrets.FORWARD_TO }}
         run: python mail_forwarder.py
